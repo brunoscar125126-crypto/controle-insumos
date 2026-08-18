@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Fallback antes do onboarding / enquanto o tema do estabelecimento carrega */
+  --cor-primaria: #047857;
+  --cor-secundaria: #ecfdf5;
+}
+
+body {
+  background-color: #fafaf9; /* stone-50, igual ao mock */
+}
