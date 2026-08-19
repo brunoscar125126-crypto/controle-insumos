@@ -11,7 +11,7 @@ import type { Categoria, InsumoComCategoria } from "@/lib/types";
 interface Estabelecimento {
   id: string;
   nome: string;
-  logo_url: string | null;
+  logoUrl: string | null;
 }
 
 interface Props {
@@ -21,11 +21,11 @@ interface Props {
 }
 
 function LogoOuIniciais({ estabelecimento }: { estabelecimento: Estabelecimento }) {
-  if (estabelecimento.logo_url) {
+  if (estabelecimento.logoUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={estabelecimento.logo_url}
+        src={estabelecimento.logoUrl}
         alt={estabelecimento.nome}
         className="w-10 h-10 rounded-lg object-cover flex-shrink-0 bg-white"
       />
@@ -74,7 +74,7 @@ export default function TelaControleInsumos({ estabelecimento, categoriasIniciai
 
   const insumosFiltrados = insumos.filter((i) => {
     const bateBusca = i.nome.toLowerCase().includes(busca.toLowerCase());
-    const bateCategoria = categoriaAtiva === "Todos" || i.categoria_nome === categoriaAtiva;
+    const bateCategoria = categoriaAtiva === "Todos" || i.categoriaNome === categoriaAtiva;
     return bateBusca && bateCategoria;
   });
 

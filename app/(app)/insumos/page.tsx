@@ -1,44 +1,48 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
 import TelaControleInsumos from "@/components/insumos/TelaControleInsumos";
-import type { Categoria, InsumoComCategoria } from "@/lib/types";
+import type { Unidade } from "@/lib/types";
 
 export default async function InsumosPage() {
-  const supabase = await createClient();
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: estabelecimento } = await supabase
-    .from("estabelecimentos")
-    .select("id, nome, logo_url")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const estabelecimento = await prisma.estabelecimento.findUnique({
+    where: { userId: session.user.id },
+    select: { id: true, nome: true, logoUrl: true },
+  });
   if (!estabelecimento) redirect("/onboarding");
 
-  const { data: categorias } = await supabase
-    .from("categorias")
-    .select("*")
-    .eq("estabelecimento_id", estabelecimento.id)
-    .order("nome");
+  const [categorias, insumos] = await Promise.all([
+    prisma.categoria.findMany({
+      where: { estabelecimentoId: estabelecimento.id },
+      orderBy: { nome: "asc" },
+      select: { id: true, estabelecimentoId: true, nome: true },
+    }),
+    prisma.insumo.findMany({
+      where: { estabelecimentoId: estabelecimento.id },
+      orderBy: { createdAt: "desc" },
+      include: { categoria: { select: { nome: true } } },
+    }),
+  ]);
 
-  const { data: insumos } = await supabase
-    .from("insumos")
-    .select("*, categorias(nome)")
-    .eq("estabelecimento_id", estabelecimento.id)
-    .order("created_at", { ascending: false });
-
-  const insumosComCategoria: InsumoComCategoria[] = (insumos ?? []).map((i: any) => ({
-    ...i,
-    categoria_nome: i.categorias?.nome ?? "Outros",
+  // Decimal do Prisma não serializa direto pra Client Component — converte pra number aqui.
+  const insumosComCategoria = insumos.map((i) => ({
+    id: i.id,
+    estabelecimentoId: i.estabelecimentoId,
+    categoriaId: i.categoriaId,
+    nome: i.nome,
+    quantidade: i.quantidade.toNumber(),
+    unidade: i.unidade as Unidade,
+    fotoUrl: i.fotoUrl,
+    categoriaNome: i.categoria.nome,
   }));
 
   return (
     <TelaControleInsumos
       estabelecimento={estabelecimento}
-      categoriasIniciais={(categorias ?? []) as Categoria[]}
+      categoriasIniciais={categorias}
       insumosIniciais={insumosComCategoria}
     />
   );

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
 
 /**
  * Layout de toda a área logada (pós-onboarding). Busca o estabelecimento
@@ -7,24 +8,19 @@ import { createClient } from "@/lib/supabase/server";
  * componentes filhos herdam via `var(--cor-primaria)` (ver tailwind.config.ts).
  */
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient();
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: estabelecimento } = await supabase
-    .from("estabelecimentos")
-    .select("id, nome, logo_url, cor_primaria, cor_secundaria")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const estabelecimento = await prisma.estabelecimento.findUnique({
+    where: { userId: session.user.id },
+    select: { corPrimaria: true, corSecundaria: true },
+  });
 
   if (!estabelecimento) redirect("/onboarding");
 
   const temaStyle = {
-    ...(estabelecimento.cor_primaria ? { "--cor-primaria": estabelecimento.cor_primaria } : {}),
-    ...(estabelecimento.cor_secundaria ? { "--cor-secundaria": estabelecimento.cor_secundaria } : {}),
+    ...(estabelecimento.corPrimaria ? { "--cor-primaria": estabelecimento.corPrimaria } : {}),
+    ...(estabelecimento.corSecundaria ? { "--cor-secundaria": estabelecimento.corSecundaria } : {}),
   } as React.CSSProperties;
 
   return (

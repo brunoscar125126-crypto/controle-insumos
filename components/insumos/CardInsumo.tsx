@@ -19,9 +19,9 @@ export default function CardInsumo({ insumo, onAlterarQuantidade, onRemover }: P
       }`}
     >
       <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 bg-stone-100 flex items-center justify-center">
-        {insumo.foto_url ? (
+        {insumo.fotoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={insumo.foto_url} alt={insumo.nome} className="w-full h-full object-cover" />
+          <img src={insumo.fotoUrl} alt={insumo.nome} className="w-full h-full object-cover" />
         ) : (
           <Package size={20} className="text-stone-400" />
         )}
@@ -30,7 +30,7 @@ export default function CardInsumo({ insumo, onAlterarQuantidade, onRemover }: P
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-stone-900 truncate">{insumo.nome}</p>
         <p className={`text-xs ${critico ? "text-red-600" : "text-stone-500"}`}>
-          {insumo.categoria_nome}
+          {insumo.categoriaNome}
           {critico ? " · estoque baixo" : ""}
         </p>
       </div>

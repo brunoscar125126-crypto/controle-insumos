@@ -3,12 +3,11 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ImagePlus, Loader2, Store } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { extrairPaleta } from "@/lib/theme/extractPalette";
+import { criarEstabelecimento } from "@/app/onboarding/actions";
 
 export default function OnboardingForm() {
   const router = useRouter();
-  const supabase = createClient();
   const inputFotoRef = useRef<HTMLInputElement>(null);
 
   const [nome, setNome] = useState("");
@@ -48,46 +47,18 @@ export default function OnboardingForm() {
       return;
     }
 
+    const formData = new FormData();
+    formData.set("nome", nome.trim());
+    formData.set("logo", logoFile);
+    if (cores) {
+      formData.set("corPrimaria", cores.corPrimaria);
+      formData.set("corSecundaria", cores.corSecundaria);
+    }
+
     setSalvando(true);
     setErro("");
-
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error("Sessão expirada, faça login novamente.");
-
-      // 1. cria o estabelecimento (a categoria "Outros" é criada automaticamente por trigger)
-      const { data: estabelecimento, error: erroInsert } = await supabase
-        .from("estabelecimentos")
-        .insert({ user_id: user.id, nome: nome.trim() })
-        .select("id")
-        .single();
-      if (erroInsert || !estabelecimento) throw erroInsert ?? new Error("Falha ao criar estabelecimento.");
-
-      // 2. sobe o logo pro storage, dentro de logos/{estabelecimento_id}/
-      const extensao = logoFile.name.split(".").pop() || "png";
-      const caminho = `logos/${estabelecimento.id}/logo.${extensao}`;
-      const { error: erroUpload } = await supabase.storage
-        .from("establishment-assets")
-        .upload(caminho, logoFile, { upsert: true, contentType: logoFile.type });
-      if (erroUpload) throw erroUpload;
-
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("establishment-assets").getPublicUrl(caminho);
-
-      // 3. salva logo_url + tema extraído no estabelecimento
-      const { error: erroUpdate } = await supabase
-        .from("estabelecimentos")
-        .update({
-          logo_url: publicUrl,
-          cor_primaria: cores?.corPrimaria ?? null,
-          cor_secundaria: cores?.corSecundaria ?? null,
-        })
-        .eq("id", estabelecimento.id);
-      if (erroUpdate) throw erroUpdate;
-
+      await criarEstabelecimento(formData);
       router.push("/insumos");
       router.refresh();
     } catch (e) {

@@ -1,24 +1,19 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
 
 /**
  * "/" nunca renderiza nada — só decide pra onde mandar o usuário:
  * login → onboarding (se ainda não tem estabelecimento) → /insumos.
  */
 export default async function Home() {
-  const supabase = await createClient();
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
-
-  const { data: estabelecimento } = await supabase
-    .from("estabelecimentos")
-    .select("id")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const estabelecimento = await prisma.estabelecimento.findUnique({
+    where: { userId: session.user.id },
+    select: { id: true },
+  });
 
   if (!estabelecimento) redirect("/onboarding");
 
