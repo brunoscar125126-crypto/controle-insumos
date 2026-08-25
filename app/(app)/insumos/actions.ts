@@ -75,6 +75,48 @@ export async function criarInsumo(formData: FormData) {
   revalidatePath("/insumos");
 }
 
+export async function atualizarInsumo(insumoId: string, formData: FormData) {
+  const estabelecimentoId = await getEstabelecimentoIdOuFalha();
+
+  const nome = String(formData.get("nome") ?? "").trim();
+  const quantidade = Number(formData.get("quantidade"));
+  const unidade = String(formData.get("unidade") ?? "") as Unidade;
+  const categoriaId = (formData.get("categoriaId") as string) || null;
+  const novaCategoriaNome = (formData.get("novaCategoriaNome") as string) || null;
+  const foto = formData.get("foto") as File | null;
+
+  if (!nome) throw new Error("Digite o nome do insumo.");
+  if (Number.isNaN(quantidade) || quantidade < 0) throw new Error("Informe uma quantidade válida.");
+
+  const categoriaIdFinal = await resolverCategoria(estabelecimentoId, categoriaId, novaCategoriaNome);
+
+  // "Unchecked" pq estamos setando categoriaId como escalar direto (é
+  // assim que o resto do arquivo já trabalha), não via relation connect.
+  const data: Prisma.InsumoUncheckedUpdateManyInput = {
+    nome,
+    quantidade,
+    unidade,
+    categoriaId: categoriaIdFinal,
+  };
+
+  // Só troca a foto se uma nova foi enviada — sem isso, mantém a atual.
+  if (foto && foto.size > 0) {
+    data.foto = Buffer.from(await foto.arrayBuffer());
+    data.fotoContentType = foto.type || "image/jpeg";
+  }
+
+  // updateMany (não update por id) pra embutir a checagem de posse na
+  // própria query, igual removerInsumo — nunca mexe num insumo de outro
+  // estabelecimento mesmo que o id venha adulterado do client.
+  const resultado = await prisma.insumo.updateMany({
+    where: { id: insumoId, estabelecimentoId },
+    data,
+  });
+  if (resultado.count === 0) throw new Error("Insumo não encontrado.");
+
+  revalidatePath("/insumos");
+}
+
 export async function alterarQuantidade(insumoId: string, delta: number) {
   const estabelecimentoId = await getEstabelecimentoIdOuFalha();
 

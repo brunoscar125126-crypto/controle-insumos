@@ -2,26 +2,30 @@
 
 import { useRef, useState } from "react";
 import { ImagePlus, Loader2, X } from "lucide-react";
-import { UNIDADES, type Categoria, type Unidade } from "@/lib/types";
+import { UNIDADES, type Categoria, type InsumoComCategoria, type Unidade } from "@/lib/types";
 import { redimensionarImagem } from "@/lib/image/resizeImage";
 import { usePasteImage } from "@/lib/image/usePasteImage";
 import CropperModal from "@/components/image/CropperModal";
 
 interface Props {
   categorias: Categoria[];
+  /** Presente = modo edição (pré-preenche os campos); ausente = cadastro de um novo insumo. */
+  insumoParaEditar?: InsumoComCategoria;
   onFechar: () => void;
   onSalvar: (formData: FormData) => Promise<void>;
 }
 
-export default function ModalNovoInsumo({ categorias, onFechar, onSalvar }: Props) {
-  const [nome, setNome] = useState("");
-  const [categoriaId, setCategoriaId] = useState(categorias[0]?.id ?? "");
+export default function ModalInsumo({ categorias, insumoParaEditar, onFechar, onSalvar }: Props) {
+  const editando = Boolean(insumoParaEditar);
+
+  const [nome, setNome] = useState(insumoParaEditar?.nome ?? "");
+  const [categoriaId, setCategoriaId] = useState(insumoParaEditar?.categoriaId ?? categorias[0]?.id ?? "");
   const [novaCategoria, setNovaCategoria] = useState("");
   const [usandoNovaCategoria, setUsandoNovaCategoria] = useState(categorias.length === 0);
-  const [quantidade, setQuantidade] = useState("");
-  const [unidade, setUnidade] = useState<Unidade>(UNIDADES[0]);
+  const [quantidade, setQuantidade] = useState(insumoParaEditar ? String(insumoParaEditar.quantidade) : "");
+  const [unidade, setUnidade] = useState<Unidade>(insumoParaEditar?.unidade ?? UNIDADES[0]);
   const [foto, setFoto] = useState<File | null>(null);
-  const [fotoPreview, setFotoPreview] = useState<string | null>(null);
+  const [fotoPreview, setFotoPreview] = useState<string | null>(insumoParaEditar?.fotoUrl ?? null);
   const [imagemParaCortar, setImagemParaCortar] = useState<string | null>(null);
   const [processandoFoto, setProcessandoFoto] = useState(false);
   const [erro, setErro] = useState("");
@@ -93,6 +97,8 @@ export default function ModalNovoInsumo({ categorias, onFechar, onSalvar }: Prop
     } else {
       formData.set("categoriaId", categoriaId);
     }
+    // No modo edição, só manda "foto" se uma nova foi escolhida — sem
+    // campo nenhum, a Server Action mantém a foto atual como está.
     if (foto) formData.set("foto", foto);
 
     setSalvando(true);
@@ -109,7 +115,7 @@ export default function ModalNovoInsumo({ categorias, onFechar, onSalvar }: Prop
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4">
       <div className="bg-white w-full sm:max-w-sm sm:rounded-xl rounded-t-2xl p-5 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-medium text-stone-900">Novo insumo</h2>
+          <h2 className="text-base font-medium text-stone-900">{editando ? "Editar insumo" : "Novo insumo"}</h2>
           <button onClick={onFechar} aria-label="Fechar" className="text-stone-400 hover:text-stone-700">
             <X size={20} />
           </button>
@@ -239,7 +245,7 @@ export default function ModalNovoInsumo({ categorias, onFechar, onSalvar }: Prop
               className="flex-1 h-9 rounded-lg bg-emerald-700 text-sm text-white hover:bg-emerald-800 disabled:opacity-60 flex items-center justify-center gap-2"
             >
               {salvando && <Loader2 size={14} className="animate-spin" />}
-              {salvando ? "Salvando..." : "Salvar insumo"}
+              {salvando ? "Salvando..." : editando ? "Salvar alterações" : "Salvar insumo"}
             </button>
           </div>
         </div>

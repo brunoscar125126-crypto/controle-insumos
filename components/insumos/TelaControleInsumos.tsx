@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { LogOut, Package, Plus, Search, Store } from "lucide-react";
 import CardInsumo from "./CardInsumo";
-import ModalNovoInsumo from "./ModalNovoInsumo";
+import ModalInsumo from "./ModalInsumo";
 import ModalPerfil from "@/components/perfil/ModalPerfil";
-import { alterarQuantidade, criarInsumo, removerInsumo } from "@/app/(app)/insumos/actions";
+import { alterarQuantidade, atualizarInsumo, criarInsumo, removerInsumo } from "@/app/(app)/insumos/actions";
 import { atualizarCores } from "@/app/(app)/actions";
 import type { Categoria, InsumoComCategoria } from "@/lib/types";
 
@@ -76,6 +76,7 @@ export default function TelaControleInsumos({ estabelecimento, categoriasIniciai
   const [busca, setBusca] = useState("");
   const [categoriaAtiva, setCategoriaAtiva] = useState("Todos");
   const [modalAberto, setModalAberto] = useState(false);
+  const [insumoEditando, setInsumoEditando] = useState<InsumoComCategoria | null>(null);
   const [perfilAberto, setPerfilAberto] = useState(false);
 
   const insumosFiltrados = insumos.filter((i) => {
@@ -108,6 +109,13 @@ export default function TelaControleInsumos({ estabelecimento, categoriasIniciai
   async function handleSalvarNovoInsumo(formData: FormData) {
     await criarInsumo(formData);
     setModalAberto(false);
+    router.refresh();
+  }
+
+  async function handleSalvarEdicao(formData: FormData) {
+    if (!insumoEditando) return;
+    await atualizarInsumo(insumoEditando.id, formData);
+    setInsumoEditando(null);
     router.refresh();
   }
 
@@ -217,6 +225,7 @@ export default function TelaControleInsumos({ estabelecimento, categoriasIniciai
           <CardInsumo
             key={insumo.id}
             insumo={insumo}
+            onEditar={setInsumoEditando}
             onAlterarQuantidade={handleAlterarQuantidade}
             onRemover={handleRemover}
           />
@@ -235,10 +244,19 @@ export default function TelaControleInsumos({ estabelecimento, categoriasIniciai
       )}
 
       {modalAberto && (
-        <ModalNovoInsumo
+        <ModalInsumo
           categorias={categorias}
           onFechar={() => setModalAberto(false)}
           onSalvar={handleSalvarNovoInsumo}
+        />
+      )}
+
+      {insumoEditando && (
+        <ModalInsumo
+          categorias={categorias}
+          insumoParaEditar={insumoEditando}
+          onFechar={() => setInsumoEditando(null)}
+          onSalvar={handleSalvarEdicao}
         />
       )}
 

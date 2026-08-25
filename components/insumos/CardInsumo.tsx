@@ -5,11 +5,12 @@ import type { InsumoComCategoria } from "@/lib/types";
 
 interface Props {
   insumo: InsumoComCategoria;
+  onEditar: (insumo: InsumoComCategoria) => void;
   onAlterarQuantidade: (id: string, delta: number) => void;
   onRemover: (id: string) => void;
 }
 
-export default function CardInsumo({ insumo, onAlterarQuantidade, onRemover }: Props) {
+export default function CardInsumo({ insumo, onEditar, onAlterarQuantidade, onRemover }: Props) {
   const critico = insumo.quantidade <= 3;
 
   return (
@@ -18,22 +19,29 @@ export default function CardInsumo({ insumo, onAlterarQuantidade, onRemover }: P
         critico ? "border-red-200 bg-red-50" : "border-stone-200 bg-white"
       }`}
     >
-      <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 bg-stone-100 flex items-center justify-center">
-        {insumo.fotoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={insumo.fotoUrl} alt={insumo.nome} className="w-full h-full object-cover" />
-        ) : (
-          <Package size={20} className="text-stone-400" />
-        )}
-      </div>
+      <button
+        type="button"
+        onClick={() => onEditar(insumo)}
+        aria-label={`Editar ${insumo.nome}`}
+        className="flex items-center gap-3 flex-1 min-w-0 text-left rounded-lg -m-1 p-1 hover:bg-black/[0.03] transition"
+      >
+        <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 bg-stone-100 flex items-center justify-center">
+          {insumo.fotoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={insumo.fotoUrl} alt={insumo.nome} className="w-full h-full object-cover" />
+          ) : (
+            <Package size={20} className="text-stone-400" />
+          )}
+        </div>
 
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-stone-900 truncate">{insumo.nome}</p>
-        <p className={`text-xs ${critico ? "text-red-600" : "text-stone-500"}`}>
-          {insumo.categoriaNome}
-          {critico ? " · estoque baixo" : ""}
-        </p>
-      </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-stone-900 truncate">{insumo.nome}</p>
+          <p className={`text-xs ${critico ? "text-red-600" : "text-stone-500"}`}>
+            {insumo.categoriaNome}
+            {critico ? " · estoque baixo" : ""}
+          </p>
+        </div>
+      </button>
 
       <div className="flex items-center gap-1.5 flex-shrink-0">
         <button
