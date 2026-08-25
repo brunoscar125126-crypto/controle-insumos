@@ -10,4 +10,10 @@ export default {
   pages: {
     signIn: "/login",
   },
+  // Necessário atrás de um proxy reverso (Railway, Render, Fly...) que
+  // termina o TLS e repassa o Host real via x-forwarded-host — sem isso
+  // o Auth.js recusa qualquer host que não seja localhost com
+  // "UntrustedHost" (proteção padrão contra host header injection).
+  // Railway já cuida do roteamento/TLS, então confiar no host aqui é seguro.
+  trustHost: true,
 } satisfies NextAuthConfig;
