@@ -16,7 +16,7 @@ export default async function InsumosPage() {
   });
   if (!estabelecimento) redirect("/onboarding");
 
-  const [categorias, insumos] = await Promise.all([
+  const [categorias, insumos, listasCompras] = await Promise.all([
     prisma.categoria.findMany({
       where: { estabelecimentoId: estabelecimento.id },
       orderBy: { nome: "asc" },
@@ -24,7 +24,7 @@ export default async function InsumosPage() {
     }),
     prisma.insumo.findMany({
       where: { estabelecimentoId: estabelecimento.id },
-      orderBy: { createdAt: "desc" },
+      orderBy: { ordem: "asc" },
       // Idem: nunca traz a coluna `foto` (bytea) na listagem.
       select: {
         id: true,
@@ -35,6 +35,23 @@ export default async function InsumosPage() {
         unidade: true,
         fotoContentType: true,
         categoria: { select: { nome: true } },
+      },
+    }),
+    prisma.listaCompras.findMany({
+      where: { estabelecimentoId: estabelecimento.id },
+      orderBy: { data: "desc" },
+      select: {
+        id: true,
+        nome: true,
+        data: true,
+        itens: {
+          select: {
+            id: true,
+            insumoId: true,
+            quantidade: true,
+            insumo: { select: { nome: true, unidade: true } },
+          },
+        },
       },
     }),
   ]);
@@ -51,6 +68,19 @@ export default async function InsumosPage() {
     categoriaNome: i.categoria.nome,
   }));
 
+  const listasComprasFormatadas = listasCompras.map((l) => ({
+    id: l.id,
+    nome: l.nome,
+    data: l.data.toISOString().slice(0, 10),
+    itens: l.itens.map((item) => ({
+      id: item.id,
+      insumoId: item.insumoId,
+      insumoNome: item.insumo.nome,
+      unidade: item.insumo.unidade as Unidade,
+      quantidade: item.quantidade.toNumber(),
+    })),
+  }));
+
   return (
     <TelaControleInsumos
       estabelecimento={{
@@ -62,6 +92,7 @@ export default async function InsumosPage() {
       }}
       categoriasIniciais={categorias}
       insumosIniciais={insumosComCategoria}
+      listasComprasIniciais={listasComprasFormatadas}
     />
   );
 }

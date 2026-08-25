@@ -60,6 +60,13 @@ export async function criarInsumo(formData: FormData) {
     fotoContentType = foto.type || "image/jpeg";
   }
 
+  // Novo insumo entra no fim da lista ordenável.
+  const maiorOrdem = await prisma.insumo.aggregate({
+    where: { estabelecimentoId },
+    _max: { ordem: true },
+  });
+  const ordem = (maiorOrdem._max.ordem ?? 0) + 1;
+
   await prisma.insumo.create({
     data: {
       estabelecimentoId,
@@ -67,6 +74,7 @@ export async function criarInsumo(formData: FormData) {
       nome,
       quantidade,
       unidade,
+      ordem,
       foto: fotoBuffer,
       fotoContentType,
     },
@@ -130,6 +138,27 @@ export async function alterarQuantidade(insumoId: string, delta: number) {
     RETURNING id
   `);
   if (resultado.length === 0) throw new Error("Insumo não encontrado.");
+
+  revalidatePath("/insumos");
+}
+
+/**
+ * Recebe a nova ordem visual inteira (após um drag-and-drop) e persiste
+ * um `ordem` sequencial pra cada id — mais simples e sem risco de
+ * colisão do que tentar calcular só a posição de quem moveu.
+ */
+export async function reordenarInsumos(idsNaNovaOrdem: string[]) {
+  const estabelecimentoId = await getEstabelecimentoIdOuFalha();
+  if (idsNaNovaOrdem.length === 0) return;
+
+  await prisma.$transaction(
+    idsNaNovaOrdem.map((id, indice) =>
+      prisma.insumo.updateMany({
+        where: { id, estabelecimentoId },
+        data: { ordem: indice },
+      })
+    )
+  );
 
   revalidatePath("/insumos");
 }

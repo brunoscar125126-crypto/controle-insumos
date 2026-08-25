@@ -31,3 +31,19 @@ export interface Insumo {
 export interface InsumoComCategoria extends Insumo {
   categoriaNome: string;
 }
+
+export interface ItemListaCompras {
+  id: string;
+  insumoId: string;
+  insumoNome: string;
+  unidade: Unidade;
+  quantidade: number;
+}
+
+export interface ListaCompras {
+  id: string;
+  nome: string;
+  /** ISO (yyyy-mm-dd) — sem hora, é só a data escolhida pro usuário, não um timestamp. */
+  data: string;
+  itens: ItemListaCompras[];
+}

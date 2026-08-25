@@ -31,3 +31,43 @@ export async function atualizarCores(formData: FormData) {
 
   revalidatePath("/insumos");
 }
+
+/**
+ * Exclui uma categoria. A categoria "Outros" nunca pode ser excluída —
+ * é o destino padrão pra onde os insumos de qualquer outra categoria
+ * excluída são movidos (criada de novo aqui se por acaso não existir
+ * mais), então perder ela quebraria essa rede de segurança.
+ */
+export async function removerCategoria(categoriaId: string) {
+  const estabelecimentoId = await getEstabelecimentoIdOuFalha();
+
+  const categoria = await prisma.categoria.findFirst({
+    where: { id: categoriaId, estabelecimentoId },
+    select: { id: true, nome: true },
+  });
+  if (!categoria) throw new Error("Categoria não encontrada.");
+  if (categoria.nome.trim().toLowerCase() === "outros") {
+    throw new Error('A categoria "Outros" não pode ser excluída — é o destino padrão dos insumos.');
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const totalNaCategoria = await tx.insumo.count({ where: { categoriaId: categoria.id } });
+
+    if (totalNaCategoria > 0) {
+      const outros = await tx.categoria.upsert({
+        where: { estabelecimentoId_nome: { estabelecimentoId, nome: "Outros" } },
+        update: {},
+        create: { estabelecimentoId, nome: "Outros" },
+        select: { id: true },
+      });
+      await tx.insumo.updateMany({
+        where: { categoriaId: categoria.id },
+        data: { categoriaId: outros.id },
+      });
+    }
+
+    await tx.categoria.delete({ where: { id: categoria.id } });
+  });
+
+  revalidatePath("/insumos");
+}

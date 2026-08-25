@@ -3,13 +3,31 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { LogOut, Package, Plus, Search, Store } from "lucide-react";
-import CardInsumo from "./CardInsumo";
+import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { LogOut, Package, Plus, Search, Settings2, ShoppingCart, Store } from "lucide-react";
+import SortableCardInsumo from "./SortableCardInsumo";
 import ModalInsumo from "./ModalInsumo";
 import ModalPerfil from "@/components/perfil/ModalPerfil";
-import { alterarQuantidade, atualizarInsumo, criarInsumo, removerInsumo } from "@/app/(app)/insumos/actions";
-import { atualizarCores } from "@/app/(app)/actions";
-import type { Categoria, InsumoComCategoria } from "@/lib/types";
+import ModalCategorias from "@/components/categorias/ModalCategorias";
+import ModalListasCompras from "@/components/listas/ModalListasCompras";
+import {
+  alterarQuantidade,
+  atualizarInsumo,
+  criarInsumo,
+  removerInsumo,
+  reordenarInsumos,
+} from "@/app/(app)/insumos/actions";
+import { atualizarCores, removerCategoria } from "@/app/(app)/actions";
+import { criarListaCompras, removerListaCompras } from "@/app/(app)/listas-compras/actions";
+import type { Categoria, InsumoComCategoria, ListaCompras } from "@/lib/types";
 
 interface Estabelecimento {
   id: string;
@@ -23,6 +41,7 @@ interface Props {
   estabelecimento: Estabelecimento;
   categoriasIniciais: Categoria[];
   insumosIniciais: InsumoComCategoria[];
+  listasComprasIniciais: ListaCompras[];
 }
 
 function LogoOuIniciais({ estabelecimento }: { estabelecimento: Estabelecimento }) {
@@ -50,15 +69,21 @@ function LogoOuIniciais({ estabelecimento }: { estabelecimento: Estabelecimento 
   );
 }
 
-export default function TelaControleInsumos({ estabelecimento, categoriasIniciais, insumosIniciais }: Props) {
+export default function TelaControleInsumos({
+  estabelecimento,
+  categoriasIniciais,
+  insumosIniciais,
+  listasComprasIniciais,
+}: Props) {
   const router = useRouter();
 
   // Espelha as props vindas do servidor em state local, pra permitir updates
-  // otimistas (quantidade, remoção) sem esperar o round-trip. Sempre que o
-  // Server Component reenvia props novas (após router.refresh()), o state
-  // local é resincronizado — ajustado durante a renderização, e não em um
-  // efeito, seguindo o padrão recomendado pelo React pra "resetar state
-  // quando uma prop muda" (evita o render em cascata de um useEffect).
+  // otimistas (quantidade, remoção, reordenar) sem esperar o round-trip.
+  // Sempre que o Server Component reenvia props novas (após
+  // router.refresh()), o state local é resincronizado — ajustado durante a
+  // renderização, e não em um efeito, seguindo o padrão recomendado pelo
+  // React pra "resetar state quando uma prop muda" (evita o render em
+  // cascata de um useEffect).
   const [categoriasPropsAnteriores, setCategoriasPropsAnteriores] = useState(categoriasIniciais);
   const [categorias, setCategorias] = useState(categoriasIniciais);
   if (categoriasIniciais !== categoriasPropsAnteriores) {
@@ -73,17 +98,48 @@ export default function TelaControleInsumos({ estabelecimento, categoriasIniciai
     setInsumos(insumosIniciais);
   }
 
+  const [listasComprasPropsAnteriores, setListasComprasPropsAnteriores] = useState(listasComprasIniciais);
+  const [listasCompras, setListasCompras] = useState(listasComprasIniciais);
+  if (listasComprasIniciais !== listasComprasPropsAnteriores) {
+    setListasComprasPropsAnteriores(listasComprasIniciais);
+    setListasCompras(listasComprasIniciais);
+  }
+
   const [busca, setBusca] = useState("");
   const [categoriaAtiva, setCategoriaAtiva] = useState("Todos");
   const [modalAberto, setModalAberto] = useState(false);
   const [insumoEditando, setInsumoEditando] = useState<InsumoComCategoria | null>(null);
   const [perfilAberto, setPerfilAberto] = useState(false);
+  const [categoriasAberto, setCategoriasAberto] = useState(false);
+  const [listasComprasAberto, setListasComprasAberto] = useState(false);
+
+  // Arrastar pra reordenar só faz sentido (e só reflete uma ordem global
+  // sem ambiguidade) quando a lista completa está sendo exibida — sem
+  // busca nem filtro de categoria ativos.
+  const arrastavelHabilitado = busca === "" && categoriaAtiva === "Todos";
 
   const insumosFiltrados = insumos.filter((i) => {
     const bateBusca = i.nome.toLowerCase().includes(busca.toLowerCase());
     const bateCategoria = categoriaAtiva === "Todos" || i.categoriaNome === categoriaAtiva;
     return bateBusca && bateCategoria;
   });
+
+  const sensores = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    setInsumos((prev) => {
+      const indiceAntigo = prev.findIndex((i) => i.id === active.id);
+      const indiceNovo = prev.findIndex((i) => i.id === over.id);
+      if (indiceAntigo === -1 || indiceNovo === -1) return prev;
+
+      const reordenados = arrayMove(prev, indiceAntigo, indiceNovo);
+      reordenarInsumos(reordenados.map((i) => i.id)).catch(() => router.refresh());
+      return reordenados;
+    });
+  }
 
   async function handleAlterarQuantidade(id: string, delta: number) {
     setInsumos((prev) =>
@@ -123,6 +179,32 @@ export default function TelaControleInsumos({ estabelecimento, categoriasIniciai
     await atualizarCores(formData);
     setPerfilAberto(false);
     router.refresh();
+  }
+
+  async function handleRemoverCategoria(categoriaId: string) {
+    await removerCategoria(categoriaId);
+    router.refresh();
+  }
+
+  async function handleCriarListaCompras(formData: FormData) {
+    // Sem router.refresh() de propósito: a lista criada já volta pronta da
+    // Server Action, e o modal muda de modo ("nova" -> "lista") logo em
+    // seguida — se essas duas coisas acontecessem juntas (refresh do
+    // Router + o modal trocando de estado), o React reclamava de "setState
+    // num componente enquanto outro renderiza".
+    const novaLista = await criarListaCompras(formData);
+    setListasCompras((prev) => [novaLista, ...prev]);
+  }
+
+  async function handleRemoverListaCompras(listaId: string) {
+    const anterior = listasCompras;
+    setListasCompras((prev) => prev.filter((l) => l.id !== listaId));
+    try {
+      await removerListaCompras(listaId);
+    } catch (e) {
+      setListasCompras(anterior);
+      throw e;
+    }
   }
 
   const totalCritico = insumos.filter((i) => i.quantidade <= 3).length;
@@ -175,7 +257,7 @@ export default function TelaControleInsumos({ estabelecimento, categoriasIniciai
             className="flex-1 text-sm outline-none placeholder:text-stone-400"
           />
         </div>
-        <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-4 px-4">
           {["Todos", ...nomesCategorias].map((c) => {
             const ativa = categoriaAtiva === c;
             return (
@@ -191,7 +273,20 @@ export default function TelaControleInsumos({ estabelecimento, categoriasIniciai
               </button>
             );
           })}
+          <button
+            onClick={() => setCategoriasAberto(true)}
+            aria-label="Gerenciar categorias"
+            title="Gerenciar categorias"
+            className="flex-shrink-0 w-7 h-7 rounded-full border border-stone-300 text-stone-500 hover:bg-stone-100 flex items-center justify-center"
+          >
+            <Settings2 size={13} />
+          </button>
         </div>
+        {!arrastavelHabilitado && insumos.length > 1 && (
+          <p className="text-[11px] text-stone-400 mt-1.5">
+            Limpa a busca e escolha &quot;Todos&quot; pra poder arrastar e reordenar.
+          </p>
+        )}
       </div>
 
       <div className="px-4 py-3 space-y-2 pb-24">
@@ -221,26 +316,50 @@ export default function TelaControleInsumos({ estabelecimento, categoriasIniciai
           </div>
         )}
 
-        {insumosFiltrados.map((insumo) => (
-          <CardInsumo
-            key={insumo.id}
-            insumo={insumo}
-            onEditar={setInsumoEditando}
-            onAlterarQuantidade={handleAlterarQuantidade}
-            onRemover={handleRemover}
-          />
-        ))}
+        {/* id fixo: sem isso, o dnd-kit gera um aria-describedby com contador
+            incremental que diverge entre o HTML do servidor e o do client
+            (o client já tinha renderizado esse DndContext antes por causa de
+            navegação/refresh), disparando erro de hydration mismatch. */}
+        <DndContext
+          id="lista-insumos"
+          sensors={sensores}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext items={insumosFiltrados.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+            {insumosFiltrados.map((insumo) => (
+              <SortableCardInsumo
+                key={insumo.id}
+                insumo={insumo}
+                arrastavel={arrastavelHabilitado}
+                onEditar={setInsumoEditando}
+                onAlterarQuantidade={handleAlterarQuantidade}
+                onRemover={handleRemover}
+              />
+            ))}
+          </SortableContext>
+        </DndContext>
       </div>
 
       {insumos.length > 0 && (
-        <button
-          onClick={() => setModalAberto(true)}
-          aria-label="Adicionar insumo"
-          className="fixed bottom-6 right-1/2 translate-x-[152px] sm:translate-x-0 sm:absolute w-12 h-12 rounded-full text-white flex items-center justify-center shadow-lg active:scale-95 transition"
-          style={{ backgroundColor: "var(--cor-primaria)" }}
-        >
-          <Plus size={22} />
-        </button>
+        <div className="fixed bottom-6 right-1/2 translate-x-[152px] sm:translate-x-0 sm:absolute flex items-center gap-3">
+          <button
+            onClick={() => setListasComprasAberto(true)}
+            aria-label="Lista de compras"
+            title="Lista de compras"
+            className="w-11 h-11 rounded-full bg-white border border-stone-200 text-stone-700 flex items-center justify-center shadow-lg active:scale-95 transition"
+          >
+            <ShoppingCart size={19} />
+          </button>
+          <button
+            onClick={() => setModalAberto(true)}
+            aria-label="Adicionar insumo"
+            className="w-12 h-12 rounded-full text-white flex items-center justify-center shadow-lg active:scale-95 transition"
+            style={{ backgroundColor: "var(--cor-primaria)" }}
+          >
+            <Plus size={22} />
+          </button>
+        </div>
       )}
 
       {modalAberto && (
@@ -266,6 +385,24 @@ export default function TelaControleInsumos({ estabelecimento, categoriasIniciai
           corSecundariaAtual={estabelecimento.corSecundaria}
           onFechar={() => setPerfilAberto(false)}
           onSalvar={handleSalvarCores}
+        />
+      )}
+
+      {categoriasAberto && (
+        <ModalCategorias
+          categorias={categorias}
+          onFechar={() => setCategoriasAberto(false)}
+          onRemover={handleRemoverCategoria}
+        />
+      )}
+
+      {listasComprasAberto && (
+        <ModalListasCompras
+          insumos={insumos}
+          listas={listasCompras}
+          onFechar={() => setListasComprasAberto(false)}
+          onCriar={handleCriarListaCompras}
+          onRemover={handleRemoverListaCompras}
         />
       )}
     </div>
