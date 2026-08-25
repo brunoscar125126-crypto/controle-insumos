@@ -12,7 +12,7 @@ export default async function InsumosPage() {
     where: { userId: session.user.id },
     // Nunca seleciona a coluna `logo` (bytea) aqui — só o content-type,
     // que já basta pra saber se existe logo e montar a URL da rota de imagem.
-    select: { id: true, nome: true, logoContentType: true },
+    select: { id: true, nome: true, logoContentType: true, corPrimaria: true, corSecundaria: true },
   });
   if (!estabelecimento) redirect("/onboarding");
 
@@ -57,6 +57,8 @@ export default async function InsumosPage() {
         id: estabelecimento.id,
         nome: estabelecimento.nome,
         logoUrl: estabelecimento.logoContentType ? `/api/estabelecimentos/${estabelecimento.id}/logo` : null,
+        corPrimaria: estabelecimento.corPrimaria,
+        corSecundaria: estabelecimento.corSecundaria,
       }}
       categoriasIniciais={categorias}
       insumosIniciais={insumosComCategoria}

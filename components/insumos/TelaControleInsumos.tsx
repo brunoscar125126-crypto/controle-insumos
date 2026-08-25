@@ -6,13 +6,17 @@ import { signOut } from "next-auth/react";
 import { LogOut, Package, Plus, Search, Store } from "lucide-react";
 import CardInsumo from "./CardInsumo";
 import ModalNovoInsumo from "./ModalNovoInsumo";
+import ModalPerfil from "@/components/perfil/ModalPerfil";
 import { alterarQuantidade, criarInsumo, removerInsumo } from "@/app/(app)/insumos/actions";
+import { atualizarCores } from "@/app/(app)/actions";
 import type { Categoria, InsumoComCategoria } from "@/lib/types";
 
 interface Estabelecimento {
   id: string;
   nome: string;
   logoUrl: string | null;
+  corPrimaria: string | null;
+  corSecundaria: string | null;
 }
 
 interface Props {
@@ -72,6 +76,7 @@ export default function TelaControleInsumos({ estabelecimento, categoriasIniciai
   const [busca, setBusca] = useState("");
   const [categoriaAtiva, setCategoriaAtiva] = useState("Todos");
   const [modalAberto, setModalAberto] = useState(false);
+  const [perfilAberto, setPerfilAberto] = useState(false);
 
   const insumosFiltrados = insumos.filter((i) => {
     const bateBusca = i.nome.toLowerCase().includes(busca.toLowerCase());
@@ -106,6 +111,12 @@ export default function TelaControleInsumos({ estabelecimento, categoriasIniciai
     router.refresh();
   }
 
+  async function handleSalvarCores(formData: FormData) {
+    await atualizarCores(formData);
+    setPerfilAberto(false);
+    router.refresh();
+  }
+
   const totalCritico = insumos.filter((i) => i.quantidade <= 3).length;
   const nomesCategorias = categorias.map((c) => c.nome);
 
@@ -113,13 +124,18 @@ export default function TelaControleInsumos({ estabelecimento, categoriasIniciai
     <div className="max-w-sm mx-auto bg-stone-50 min-h-screen relative">
       <div className="px-4 pt-4 pb-6" style={{ backgroundColor: "var(--cor-primaria)" }}>
         <div className="flex items-center justify-between gap-2.5 mb-4">
-          <div className="flex items-center gap-2.5 min-w-0">
+          <button
+            onClick={() => setPerfilAberto(true)}
+            aria-label="Perfil do estabelecimento — editar cores do app"
+            title="Perfil"
+            className="flex items-center gap-2.5 min-w-0 rounded-lg hover:bg-white/10 transition p-1 -m-1"
+          >
             <LogoOuIniciais estabelecimento={estabelecimento} />
-            <div className="min-w-0">
+            <div className="min-w-0 text-left">
               <p className="text-sm font-medium text-white truncate">{estabelecimento.nome}</p>
               <p className="text-xs text-white/70">Controle de insumos</p>
             </div>
-          </div>
+          </button>
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
             aria-label="Sair"
@@ -223,6 +239,15 @@ export default function TelaControleInsumos({ estabelecimento, categoriasIniciai
           categorias={categorias}
           onFechar={() => setModalAberto(false)}
           onSalvar={handleSalvarNovoInsumo}
+        />
+      )}
+
+      {perfilAberto && (
+        <ModalPerfil
+          corPrimariaAtual={estabelecimento.corPrimaria}
+          corSecundariaAtual={estabelecimento.corSecundaria}
+          onFechar={() => setPerfilAberto(false)}
+          onSalvar={handleSalvarCores}
         />
       )}
     </div>
