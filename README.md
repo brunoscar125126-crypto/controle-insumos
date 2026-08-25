@@ -63,9 +63,9 @@ mesmo esquema de infra do [DeliHub](../DeliHub).
 
 Mesmo esquema do DeliHub: conecta o repo no Railway, ele builda com
 `npm run build` (o `postinstall` já roda `prisma generate`) e sobe com
-`npm start`. Antes do primeiro deploy rodar sem erro, aplica a migration
-uma vez com `npx prisma migrate deploy` (pode rodar via `railway run` ou
-como parte do start command, ex: `prisma migrate deploy && next start`).
+`npm start`, que já aplica a migration antes de subir o servidor
+(`prisma migrate deploy && next start` — mesmo padrão do `start` do
+backend do DeliHub).
 
 ## Fluxo
 
