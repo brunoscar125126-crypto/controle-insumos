@@ -16,6 +16,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Google({
       clientId: process.env.AUTH_GOOGLE_ID,
       clientSecret: process.env.AUTH_GOOGLE_SECRET,
+      // Sem isso, o Google pula direto pra conta já ativa no navegador
+      // (mesmo depois de sair do app) em vez de deixar escolher outra.
+      authorization: { params: { prompt: "select_account" } },
     }),
   ],
   callbacks: {

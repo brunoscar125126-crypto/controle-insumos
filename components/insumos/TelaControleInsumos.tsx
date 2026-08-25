@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Package, Plus, Search, Store } from "lucide-react";
+import { signOut } from "next-auth/react";
+import { LogOut, Package, Plus, Search, Store } from "lucide-react";
 import CardInsumo from "./CardInsumo";
 import ModalNovoInsumo from "./ModalNovoInsumo";
 import { alterarQuantidade, criarInsumo, removerInsumo } from "@/app/(app)/insumos/actions";
@@ -111,12 +112,22 @@ export default function TelaControleInsumos({ estabelecimento, categoriasIniciai
   return (
     <div className="max-w-sm mx-auto bg-stone-50 min-h-screen relative">
       <div className="px-4 pt-4 pb-6" style={{ backgroundColor: "var(--cor-primaria)" }}>
-        <div className="flex items-center gap-2.5 mb-4">
-          <LogoOuIniciais estabelecimento={estabelecimento} />
-          <div>
-            <p className="text-sm font-medium text-white">{estabelecimento.nome}</p>
-            <p className="text-xs text-white/70">Controle de insumos</p>
+        <div className="flex items-center justify-between gap-2.5 mb-4">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <LogoOuIniciais estabelecimento={estabelecimento} />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-white truncate">{estabelecimento.nome}</p>
+              <p className="text-xs text-white/70">Controle de insumos</p>
+            </div>
           </div>
+          <button
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            aria-label="Sair"
+            title="Sair"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 transition flex-shrink-0"
+          >
+            <LogOut size={17} />
+          </button>
         </div>
         <div className="flex justify-between">
           <div>
