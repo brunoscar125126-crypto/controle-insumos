@@ -67,6 +67,25 @@ Mesmo esquema do DeliHub: conecta o repo no Railway, ele builda com
 (`prisma migrate deploy && next start` — mesmo padrão do `start` do
 backend do DeliHub).
 
+Variáveis de produção: as mesmas do `.env.local`, exceto:
+- `DATABASE_URL` deve usar o host interno do Postgres
+  (`*.railway.internal`) quando o serviço estiver no mesmo projeto
+  Railway — mais rápido e sem custo de egress. A URL pública (proxy TCP)
+  é só pra acesso de fora do Railway (ex: da sua máquina local).
+- **`AUTH_URL`** precisa ser setada explicitamente com o domínio público
+  final (ex: `https://controle-insumos-production.up.railway.app`).
+  Sem isso, o Auth.js infere o host a partir da conexão interna do
+  container e gera links de callback com `localhost:8080` em vez do
+  domínio público — dá erro `Configuration` no login. Também é por isso
+  que `auth.config.ts` tem `trustHost: true` (obrigatório atrás de
+  qualquer proxy reverso, senão o Auth.js recusa o host com
+  `UntrustedHost`). Se trocar de domínio (custom domain, por exemplo),
+  `AUTH_URL` precisa ser atualizada junto.
+
+Depois de qualquer mudança de domínio, lembra de atualizar a Authorized
+redirect URI no Google Cloud Console também
+(`https://SEU_DOMINIO/api/auth/callback/google`).
+
 ## Fluxo
 
 1. Login com Google (`/login`).
