@@ -4,6 +4,8 @@ import { useRef, useState } from "react";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { UNIDADES, type Categoria, type Unidade } from "@/lib/types";
 import { redimensionarImagem } from "@/lib/image/resizeImage";
+import { usePasteImage } from "@/lib/image/usePasteImage";
+import CropperModal from "@/components/image/CropperModal";
 
 interface Props {
   categorias: Categoria[];
@@ -20,19 +22,34 @@ export default function ModalNovoInsumo({ categorias, onFechar, onSalvar }: Prop
   const [unidade, setUnidade] = useState<Unidade>(UNIDADES[0]);
   const [foto, setFoto] = useState<File | null>(null);
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
+  const [imagemParaCortar, setImagemParaCortar] = useState<string | null>(null);
   const [processandoFoto, setProcessandoFoto] = useState(false);
   const [erro, setErro] = useState("");
   const [salvando, setSalvando] = useState(false);
   const inputFotoRef = useRef<HTMLInputElement>(null);
 
-  async function handleFoto(e: React.ChangeEvent<HTMLInputElement>) {
+  function abrirParaCortar(arquivo: File) {
+    setErro("");
+    setImagemParaCortar(URL.createObjectURL(arquivo));
+  }
+
+  // Cola (Ctrl+V) uma foto do clipboard direto — mesmo caminho de quem
+  // clica em "Adicionar foto", só que sem passar pelo seletor de arquivo.
+  usePasteImage(abrirParaCortar);
+
+  function handleFoto(e: React.ChangeEvent<HTMLInputElement>) {
     const arquivo = e.target.files?.[0];
     if (!arquivo) return;
+    abrirParaCortar(arquivo);
+  }
 
+  async function handleCropConfirmado(blob: Blob) {
+    if (imagemParaCortar) URL.revokeObjectURL(imagemParaCortar);
+    setImagemParaCortar(null);
     setErro("");
     setProcessandoFoto(true);
     try {
-      const redimensionada = await redimensionarImagem(arquivo);
+      const redimensionada = await redimensionarImagem(blob);
       const arquivoFinal = new File([redimensionada], "foto.jpg", { type: redimensionada.type });
       setFoto(arquivoFinal);
       setFotoPreview(URL.createObjectURL(arquivoFinal));
@@ -40,7 +57,14 @@ export default function ModalNovoInsumo({ categorias, onFechar, onSalvar }: Prop
       setErro("Não foi possível processar essa imagem. Tenta outra.");
     } finally {
       setProcessandoFoto(false);
+      if (inputFotoRef.current) inputFotoRef.current.value = "";
     }
+  }
+
+  function handleCropCancelado() {
+    if (imagemParaCortar) URL.revokeObjectURL(imagemParaCortar);
+    setImagemParaCortar(null);
+    if (inputFotoRef.current) inputFotoRef.current.value = "";
   }
 
   async function handleSalvar() {
@@ -108,7 +132,7 @@ export default function ModalNovoInsumo({ categorias, onFechar, onSalvar }: Prop
               ) : (
                 <>
                   <ImagePlus size={20} />
-                  <span className="text-xs">Adicionar foto</span>
+                  <span className="text-xs">Adicionar foto ou colar (Ctrl+V)</span>
                 </>
               )}
             </button>
@@ -220,6 +244,14 @@ export default function ModalNovoInsumo({ categorias, onFechar, onSalvar }: Prop
           </div>
         </div>
       </div>
+
+      {imagemParaCortar && (
+        <CropperModal
+          imagemSrc={imagemParaCortar}
+          onCancelar={handleCropCancelado}
+          onConfirmar={handleCropConfirmado}
+        />
+      )}
     </div>
   );
 }

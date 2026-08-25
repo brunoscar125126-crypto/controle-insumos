@@ -15,7 +15,7 @@ interface OpcoesRedimensionamento {
  * transparência, tipo logo em PNG, já que JPEG não suporta alpha).
  */
 export async function redimensionarImagem(
-  arquivo: File,
+  arquivo: File | Blob,
   { ladoMaximo = 800, qualidade = 0.7, tipo = "image/jpeg" }: OpcoesRedimensionamento = {}
 ): Promise<Blob> {
   const bitmap = await createImageBitmap(arquivo);

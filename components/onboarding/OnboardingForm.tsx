@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { ImagePlus, Loader2, Store } from "lucide-react";
 import { extrairPaleta } from "@/lib/theme/extractPalette";
 import { redimensionarImagem } from "@/lib/image/resizeImage";
+import { usePasteImage } from "@/lib/image/usePasteImage";
+import CropperModal from "@/components/image/CropperModal";
 import { criarEstabelecimento } from "@/app/onboarding/actions";
 
 export default function OnboardingForm() {
@@ -14,21 +16,36 @@ export default function OnboardingForm() {
   const [nome, setNome] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [imagemParaCortar, setImagemParaCortar] = useState<string | null>(null);
   const [cores, setCores] = useState<{ corPrimaria: string; corSecundaria: string } | null>(null);
   const [processandoLogo, setProcessandoLogo] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
 
+  function abrirParaCortar(arquivo: File) {
+    setErro("");
+    setImagemParaCortar(URL.createObjectURL(arquivo));
+  }
+
+  // Cola (Ctrl+V) uma imagem do clipboard direto — mesmo caminho de quem
+  // clica em "Enviar logo", só que sem passar pelo seletor de arquivo.
+  usePasteImage(abrirParaCortar);
+
   async function handleLogo(e: React.ChangeEvent<HTMLInputElement>) {
     const arquivo = e.target.files?.[0];
     if (!arquivo) return;
+    abrirParaCortar(arquivo);
+  }
 
+  async function handleCropConfirmado(blob: Blob) {
+    if (imagemParaCortar) URL.revokeObjectURL(imagemParaCortar);
+    setImagemParaCortar(null);
     setErro("");
     setProcessandoLogo(true);
     try {
-      // Redimensiona/comprime antes de tudo — é essa versão (menor) que
-      // vira preview, extrai a paleta e é enviada pro servidor.
-      const redimensionada = await redimensionarImagem(arquivo);
+      // Redimensiona/comprime o recorte — é essa versão (menor) que vira
+      // preview, extrai a paleta e é enviada pro servidor.
+      const redimensionada = await redimensionarImagem(blob);
       const arquivoFinal = new File([redimensionada], "logo.jpg", { type: redimensionada.type });
 
       setLogoFile(arquivoFinal);
@@ -47,7 +64,14 @@ export default function OnboardingForm() {
       setLogoPreview(null);
     } finally {
       setProcessandoLogo(false);
+      if (inputFotoRef.current) inputFotoRef.current.value = "";
     }
+  }
+
+  function handleCropCancelado() {
+    if (imagemParaCortar) URL.revokeObjectURL(imagemParaCortar);
+    setImagemParaCortar(null);
+    if (inputFotoRef.current) inputFotoRef.current.value = "";
   }
 
   async function handleSalvar() {
@@ -114,7 +138,7 @@ export default function OnboardingForm() {
             ) : (
               <>
                 <ImagePlus size={20} />
-                <span className="text-xs">Enviar logo</span>
+                <span className="text-xs">Enviar logo ou colar (Ctrl+V)</span>
               </>
             )}
           </button>
@@ -164,6 +188,14 @@ export default function OnboardingForm() {
           {salvando ? "Salvando..." : "Concluir cadastro"}
         </button>
       </div>
+
+      {imagemParaCortar && (
+        <CropperModal
+          imagemSrc={imagemParaCortar}
+          onCancelar={handleCropCancelado}
+          onConfirmar={handleCropConfirmado}
+        />
+      )}
     </div>
   );
 }
