@@ -75,13 +75,17 @@ model VerificationToken {
 // ================================================================
 
 model Estabelecimento {
-  id            String   @id @default(uuid())
-  userId        String   @unique @map("user_id")
-  nome          String
-  logoUrl       String?  @map("logo_url")
-  corPrimaria   String?  @map("cor_primaria")
-  corSecundaria String?  @map("cor_secundaria")
-  createdAt     DateTime @default(now()) @map("created_at")
+  id              String   @id @default(uuid())
+  userId          String   @unique @map("user_id")
+  nome            String
+  // Foto guardada direto no Postgres (bytea) — já chega redimensionada e
+  // comprimida do browser (lib/image/resizeImage.ts), então o volume é
+  // pequeno. Servida via app/api/estabelecimentos/[id]/logo/route.ts.
+  logo            Bytes?
+  logoContentType String?  @map("logo_content_type")
+  corPrimaria     String?  @map("cor_primaria")
+  corSecundaria   String?  @map("cor_secundaria")
+  createdAt       DateTime @default(now()) @map("created_at")
 
   user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   categorias Categoria[]
@@ -110,7 +114,10 @@ model Insumo {
   nome              String
   quantidade        Decimal  @default(0) @db.Decimal(12, 3)
   unidade           String
-  fotoUrl           String?  @map("foto_url")
+  // Idem Estabelecimento.logo — bytea direto no Postgres, servido via
+  // app/api/insumos/[id]/foto/route.ts.
+  foto              Bytes?
+  fotoContentType   String?  @map("foto_content_type")
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
 

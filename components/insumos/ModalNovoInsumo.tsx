@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { UNIDADES, type Categoria, type Unidade } from "@/lib/types";
+import { redimensionarImagem } from "@/lib/image/resizeImage";
 
 interface Props {
   categorias: Categoria[];
@@ -19,15 +20,27 @@ export default function ModalNovoInsumo({ categorias, onFechar, onSalvar }: Prop
   const [unidade, setUnidade] = useState<Unidade>(UNIDADES[0]);
   const [foto, setFoto] = useState<File | null>(null);
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
+  const [processandoFoto, setProcessandoFoto] = useState(false);
   const [erro, setErro] = useState("");
   const [salvando, setSalvando] = useState(false);
   const inputFotoRef = useRef<HTMLInputElement>(null);
 
-  function handleFoto(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFoto(e: React.ChangeEvent<HTMLInputElement>) {
     const arquivo = e.target.files?.[0];
     if (!arquivo) return;
-    setFoto(arquivo);
-    setFotoPreview(URL.createObjectURL(arquivo));
+
+    setErro("");
+    setProcessandoFoto(true);
+    try {
+      const redimensionada = await redimensionarImagem(arquivo);
+      const arquivoFinal = new File([redimensionada], "foto.jpg", { type: redimensionada.type });
+      setFoto(arquivoFinal);
+      setFotoPreview(URL.createObjectURL(arquivoFinal));
+    } catch {
+      setErro("Não foi possível processar essa imagem. Tenta outra.");
+    } finally {
+      setProcessandoFoto(false);
+    }
   }
 
   async function handleSalvar() {
@@ -84,9 +97,12 @@ export default function ModalNovoInsumo({ categorias, onFechar, onSalvar }: Prop
             <button
               type="button"
               onClick={() => inputFotoRef.current?.click()}
-              className="w-full h-24 rounded-lg border border-dashed border-stone-300 flex flex-col items-center justify-center gap-1 text-stone-400 hover:bg-stone-50 overflow-hidden"
+              disabled={processandoFoto}
+              className="w-full h-24 rounded-lg border border-dashed border-stone-300 flex flex-col items-center justify-center gap-1 text-stone-400 hover:bg-stone-50 overflow-hidden disabled:opacity-60"
             >
-              {fotoPreview ? (
+              {processandoFoto ? (
+                <Loader2 size={20} className="animate-spin" />
+              ) : fotoPreview ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={fotoPreview} alt="Pré-visualização" className="w-full h-full object-cover" />
               ) : (
@@ -195,7 +211,7 @@ export default function ModalNovoInsumo({ categorias, onFechar, onSalvar }: Prop
             <button
               type="button"
               onClick={handleSalvar}
-              disabled={salvando}
+              disabled={salvando || processandoFoto}
               className="flex-1 h-9 rounded-lg bg-emerald-700 text-sm text-white hover:bg-emerald-800 disabled:opacity-60 flex items-center justify-center gap-2"
             >
               {salvando && <Loader2 size={14} className="animate-spin" />}

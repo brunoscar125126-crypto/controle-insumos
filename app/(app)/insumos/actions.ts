@@ -1,10 +1,8 @@
 "use server";
 
-import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { subirArquivo, removerArquivo, caminhoDaUrl } from "@/lib/storage/r2";
 import { getEstabelecimentoIdOuFalha } from "@/lib/auth/estabelecimento";
 import type { Unidade } from "@/lib/types";
 
@@ -54,11 +52,12 @@ export async function criarInsumo(formData: FormData) {
 
   const categoriaIdFinal = await resolverCategoria(estabelecimentoId, categoriaId, novaCategoriaNome);
 
-  let fotoUrl: string | null = null;
+  // O client já manda a foto redimensionada/comprimida (lib/image/resizeImage.ts).
+  let fotoBuffer: Buffer | null = null;
+  let fotoContentType: string | null = null;
   if (foto && foto.size > 0) {
-    const extensao = foto.name.split(".").pop() || "jpg";
-    const caminho = `insumos/${estabelecimentoId}/${randomUUID()}.${extensao}`;
-    fotoUrl = await subirArquivo(caminho, foto);
+    fotoBuffer = Buffer.from(await foto.arrayBuffer());
+    fotoContentType = foto.type || "image/jpeg";
   }
 
   await prisma.insumo.create({
@@ -68,7 +67,8 @@ export async function criarInsumo(formData: FormData) {
       nome,
       quantidade,
       unidade,
-      fotoUrl,
+      foto: fotoBuffer,
+      fotoContentType,
     },
   });
 
@@ -95,18 +95,12 @@ export async function alterarQuantidade(insumoId: string, delta: number) {
 export async function removerInsumo(insumoId: string) {
   const estabelecimentoId = await getEstabelecimentoIdOuFalha();
 
-  const insumo = await prisma.insumo.findFirst({
+  // A foto vive na própria linha (bytea) — apagar o insumo já leva ela
+  // junto, sem precisar de uma limpeza separada num storage externo.
+  const resultado = await prisma.insumo.deleteMany({
     where: { id: insumoId, estabelecimentoId },
-    select: { id: true, fotoUrl: true },
   });
-  if (!insumo) throw new Error("Insumo não encontrado.");
-
-  await prisma.insumo.delete({ where: { id: insumo.id } });
-
-  if (insumo.fotoUrl) {
-    // best-effort: se a foto não sumir do R2, não é motivo pra falhar a exclusão
-    await removerArquivo(caminhoDaUrl(insumo.fotoUrl)).catch(() => {});
-  }
+  if (resultado.count === 0) throw new Error("Insumo não encontrado.");
 
   revalidatePath("/insumos");
 }

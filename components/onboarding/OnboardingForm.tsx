@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ImagePlus, Loader2, Store } from "lucide-react";
 import { extrairPaleta } from "@/lib/theme/extractPalette";
+import { redimensionarImagem } from "@/lib/image/resizeImage";
 import { criarEstabelecimento } from "@/app/onboarding/actions";
 
 export default function OnboardingForm() {
@@ -14,7 +15,7 @@ export default function OnboardingForm() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [cores, setCores] = useState<{ corPrimaria: string; corSecundaria: string } | null>(null);
-  const [extraindoCor, setExtraindoCor] = useState(false);
+  const [processandoLogo, setProcessandoLogo] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
 
@@ -22,18 +23,30 @@ export default function OnboardingForm() {
     const arquivo = e.target.files?.[0];
     if (!arquivo) return;
 
-    setLogoFile(arquivo);
-    setLogoPreview(URL.createObjectURL(arquivo));
     setErro("");
-    setExtraindoCor(true);
+    setProcessandoLogo(true);
     try {
-      const paleta = await extrairPaleta(arquivo);
-      setCores(paleta);
+      // Redimensiona/comprime antes de tudo — é essa versão (menor) que
+      // vira preview, extrai a paleta e é enviada pro servidor.
+      const redimensionada = await redimensionarImagem(arquivo);
+      const arquivoFinal = new File([redimensionada], "logo.jpg", { type: redimensionada.type });
+
+      setLogoFile(arquivoFinal);
+      setLogoPreview(URL.createObjectURL(arquivoFinal));
+
+      try {
+        const paleta = await extrairPaleta(arquivoFinal);
+        setCores(paleta);
+      } catch {
+        // extração de cor falhou (ex: navegador sem suporte) — segue com fallback do tema padrão
+        setCores(null);
+      }
     } catch {
-      // extração falhou (ex: navegador sem suporte) — segue com fallback do tema padrão
-      setCores(null);
+      setErro("Não foi possível processar essa imagem. Tenta outra.");
+      setLogoFile(null);
+      setLogoPreview(null);
     } finally {
-      setExtraindoCor(false);
+      setProcessandoLogo(false);
     }
   }
 
@@ -114,11 +127,11 @@ export default function OnboardingForm() {
           />
         </div>
 
-        {(extraindoCor || cores) && (
+        {(processandoLogo || cores) && (
           <div className="flex items-center gap-2 text-xs text-stone-500">
-            {extraindoCor ? (
+            {processandoLogo ? (
               <>
-                <Loader2 size={13} className="animate-spin" /> Extraindo cores do logo...
+                <Loader2 size={13} className="animate-spin" /> Processando logo...
               </>
             ) : (
               cores && (
@@ -144,7 +157,7 @@ export default function OnboardingForm() {
 
         <button
           onClick={handleSalvar}
-          disabled={salvando || extraindoCor}
+          disabled={salvando || processandoLogo}
           className="w-full h-10 rounded-lg bg-emerald-700 text-sm text-white hover:bg-emerald-800 disabled:opacity-60 flex items-center justify-center gap-2"
         >
           {salvando && <Loader2 size={15} className="animate-spin" />}

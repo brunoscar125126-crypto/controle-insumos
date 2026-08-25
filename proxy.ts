@@ -9,9 +9,17 @@ const { auth } = NextAuth(authConfig);
 
 const ROTAS_PUBLICAS = ["/login", "/api/auth"];
 
+// Imagens (logo/foto) são servidas sem checar sessão — mesmo comportamento
+// de quando viviam num bucket R2 público (ver comentário nas próprias
+// rotas). Sem isso, <img src="/api/.../foto"> nunca carrega deslogado, e
+// nem sempre é o mesmo usuário logado que está vendo (ex: preview do card).
+const ROTAS_PUBLICAS_REGEX = [/^\/api\/estabelecimentos\/[^/]+\/logo$/, /^\/api\/insumos\/[^/]+\/foto$/];
+
 export default auth((req) => {
   const logado = !!req.auth;
-  const rotaPublica = ROTAS_PUBLICAS.some((rota) => req.nextUrl.pathname.startsWith(rota));
+  const rotaPublica =
+    ROTAS_PUBLICAS.some((rota) => req.nextUrl.pathname.startsWith(rota)) ||
+    ROTAS_PUBLICAS_REGEX.some((regex) => regex.test(req.nextUrl.pathname));
 
   if (!logado && !rotaPublica) {
     const url = req.nextUrl.clone();

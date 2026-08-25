@@ -10,7 +10,9 @@ export default async function InsumosPage() {
 
   const estabelecimento = await prisma.estabelecimento.findUnique({
     where: { userId: session.user.id },
-    select: { id: true, nome: true, logoUrl: true },
+    // Nunca seleciona a coluna `logo` (bytea) aqui — só o content-type,
+    // que já basta pra saber se existe logo e montar a URL da rota de imagem.
+    select: { id: true, nome: true, logoContentType: true },
   });
   if (!estabelecimento) redirect("/onboarding");
 
@@ -23,7 +25,17 @@ export default async function InsumosPage() {
     prisma.insumo.findMany({
       where: { estabelecimentoId: estabelecimento.id },
       orderBy: { createdAt: "desc" },
-      include: { categoria: { select: { nome: true } } },
+      // Idem: nunca traz a coluna `foto` (bytea) na listagem.
+      select: {
+        id: true,
+        estabelecimentoId: true,
+        categoriaId: true,
+        nome: true,
+        quantidade: true,
+        unidade: true,
+        fotoContentType: true,
+        categoria: { select: { nome: true } },
+      },
     }),
   ]);
 
@@ -35,13 +47,17 @@ export default async function InsumosPage() {
     nome: i.nome,
     quantidade: i.quantidade.toNumber(),
     unidade: i.unidade as Unidade,
-    fotoUrl: i.fotoUrl,
+    fotoUrl: i.fotoContentType ? `/api/insumos/${i.id}/foto` : null,
     categoriaNome: i.categoria.nome,
   }));
 
   return (
     <TelaControleInsumos
-      estabelecimento={estabelecimento}
+      estabelecimento={{
+        id: estabelecimento.id,
+        nome: estabelecimento.nome,
+        logoUrl: estabelecimento.logoContentType ? `/api/estabelecimentos/${estabelecimento.id}/logo` : null,
+      }}
       categoriasIniciais={categorias}
       insumosIniciais={insumosComCategoria}
     />
