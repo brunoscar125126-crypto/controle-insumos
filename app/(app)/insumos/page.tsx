@@ -16,7 +16,13 @@ export default async function InsumosPage() {
   });
   if (!estabelecimento) redirect("/onboarding");
 
-  const [categorias, insumos, listasCompras] = await Promise.all([
+  const [usuario, categorias, insumos, listasCompras] = await Promise.all([
+    // Só o suficiente pra mostrar no Perfil se já dá pra entrar com senha —
+    // o hash em si (`password`) nunca vai pro client, só um booleano.
+    prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { email: true, password: true },
+    }),
     prisma.categoria.findMany({
       where: { estabelecimentoId: estabelecimento.id },
       orderBy: { nome: "asc" },
@@ -93,6 +99,8 @@ export default async function InsumosPage() {
       categoriasIniciais={categorias}
       insumosIniciais={insumosComCategoria}
       listasComprasIniciais={listasComprasFormatadas}
+      email={usuario?.email ?? null}
+      temSenha={Boolean(usuario?.password)}
     />
   );
 }

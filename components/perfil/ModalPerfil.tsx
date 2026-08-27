@@ -4,10 +4,13 @@ import { useState } from "react";
 import { Loader2, X } from "lucide-react";
 
 interface Props {
+  email: string | null;
+  temSenha: boolean;
   corPrimariaAtual: string | null;
   corSecundariaAtual: string | null;
   onFechar: () => void;
-  onSalvar: (formData: FormData) => Promise<void>;
+  onSalvarCores: (formData: FormData) => Promise<void>;
+  onDefinirSenha: (formData: FormData) => Promise<void>;
 }
 
 const COR_PRIMARIA_PADRAO = "#047857";
@@ -60,18 +63,32 @@ function CampoCor({
   );
 }
 
-export default function ModalPerfil({ corPrimariaAtual, corSecundariaAtual, onFechar, onSalvar }: Props) {
+export default function ModalPerfil({
+  email,
+  temSenha,
+  corPrimariaAtual,
+  corSecundariaAtual,
+  onFechar,
+  onSalvarCores,
+  onDefinirSenha,
+}: Props) {
   const [corPrimaria, setCorPrimaria] = useState(corPrimariaAtual ?? COR_PRIMARIA_PADRAO);
   const [corSecundaria, setCorSecundaria] = useState(corSecundariaAtual ?? COR_SECUNDARIA_PADRAO);
-  const [erro, setErro] = useState("");
-  const [salvando, setSalvando] = useState(false);
+  const [erroCores, setErroCores] = useState("");
+  const [salvandoCores, setSalvandoCores] = useState(false);
+
+  const [novaSenha, setNovaSenha] = useState("");
+  const [confirmarSenha, setConfirmarSenha] = useState("");
+  const [erroSenha, setErroSenha] = useState("");
+  const [sucessoSenha, setSucessoSenha] = useState(false);
+  const [salvandoSenha, setSalvandoSenha] = useState(false);
 
   const primariaValida = corValida(corPrimaria);
   const secundariaValida = corValida(corSecundaria);
 
-  async function handleSalvar() {
+  async function handleSalvarCores() {
     if (!primariaValida || !secundariaValida) {
-      setErro("Use um hex válido nas duas cores, tipo #047857.");
+      setErroCores("Use um hex válido nas duas cores, tipo #047857.");
       return;
     }
 
@@ -79,13 +96,42 @@ export default function ModalPerfil({ corPrimariaAtual, corSecundariaAtual, onFe
     formData.set("corPrimaria", corPrimaria);
     formData.set("corSecundaria", corSecundaria);
 
-    setSalvando(true);
-    setErro("");
+    setSalvandoCores(true);
+    setErroCores("");
     try {
-      await onSalvar(formData);
+      await onSalvarCores(formData);
     } catch (e) {
-      setErro(e instanceof Error ? e.message : "Não deu pra salvar. Tenta de novo.");
-      setSalvando(false);
+      setErroCores(e instanceof Error ? e.message : "Não deu pra salvar. Tenta de novo.");
+    } finally {
+      setSalvandoCores(false);
+    }
+  }
+
+  async function handleDefinirSenha() {
+    if (novaSenha.length < 8) {
+      setErroSenha("A senha precisa ter pelo menos 8 caracteres.");
+      return;
+    }
+    if (novaSenha !== confirmarSenha) {
+      setErroSenha("As senhas não são iguais.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.set("senha", novaSenha);
+
+    setSalvandoSenha(true);
+    setErroSenha("");
+    setSucessoSenha(false);
+    try {
+      await onDefinirSenha(formData);
+      setSucessoSenha(true);
+      setNovaSenha("");
+      setConfirmarSenha("");
+    } catch (e) {
+      setErroSenha(e instanceof Error ? e.message : "Não deu pra salvar a senha. Tenta de novo.");
+    } finally {
+      setSalvandoSenha(false);
     }
   }
 
@@ -93,15 +139,16 @@ export default function ModalPerfil({ corPrimariaAtual, corSecundariaAtual, onFe
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4">
       <div className="bg-white w-full sm:max-w-sm sm:rounded-xl rounded-t-2xl p-5 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-medium text-stone-900">Cores do app</h2>
+          <h2 className="text-base font-medium text-stone-900">Perfil</h2>
           <button onClick={onFechar} aria-label="Fechar" className="text-stone-400 hover:text-stone-700">
             <X size={20} />
           </button>
         </div>
 
         <div className="space-y-4">
-          <p className="text-xs text-stone-500 -mt-1">
-            Cores do tema do app — vieram do logo no cadastro, mas pode ajustar em hex quando quiser.
+          <p className="text-xs font-medium text-stone-700">Cores do app</p>
+          <p className="text-xs text-stone-500 -mt-3">
+            Vieram do logo no cadastro, mas pode ajustar em hex quando quiser.
           </p>
 
           <CampoCor label="Cor primária" valor={corPrimaria} onChange={setCorPrimaria} />
@@ -122,28 +169,78 @@ export default function ModalPerfil({ corPrimariaAtual, corSecundariaAtual, onFe
             </div>
           </div>
 
-          {erro && <p className="text-xs text-red-600">{erro}</p>}
+          {erroCores && <p className="text-xs text-red-600">{erroCores}</p>}
 
-          <div className="flex gap-2 pt-2">
-            <button
-              type="button"
-              onClick={onFechar}
-              disabled={salvando}
-              className="flex-1 h-9 rounded-lg border border-stone-300 text-sm text-stone-700 hover:bg-stone-50 disabled:opacity-60"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={handleSalvar}
-              disabled={salvando}
-              className="flex-1 h-9 rounded-lg bg-emerald-700 text-sm text-white hover:bg-emerald-800 disabled:opacity-60 flex items-center justify-center gap-2"
-            >
-              {salvando && <Loader2 size={14} className="animate-spin" />}
-              {salvando ? "Salvando..." : "Salvar"}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleSalvarCores}
+            disabled={salvandoCores}
+            className="w-full h-9 rounded-lg bg-emerald-700 text-sm text-white hover:bg-emerald-800 disabled:opacity-60 flex items-center justify-center gap-2"
+          >
+            {salvandoCores && <Loader2 size={14} className="animate-spin" />}
+            {salvandoCores ? "Salvando..." : "Salvar cores"}
+          </button>
         </div>
+
+        <div className="border-t border-stone-200 my-5" />
+
+        <div className="space-y-3">
+          <div>
+            <p className="text-xs font-medium text-stone-700">Login por e-mail e senha</p>
+            <p className="text-xs text-stone-500 mt-0.5">
+              {temSenha ? (
+                <>Já dá pra entrar com {email} e senha, sem precisar do Google.</>
+              ) : (
+                <>Defina uma senha pra poder entrar com {email ?? "seu e-mail"} sem precisar do Google.</>
+              )}
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs text-stone-500 mb-1">
+              {temSenha ? "Nova senha" : "Senha"}
+            </label>
+            <input
+              type="password"
+              value={novaSenha}
+              onChange={(e) => setNovaSenha(e.target.value)}
+              placeholder="Pelo menos 8 caracteres"
+              className="w-full h-9 px-3 rounded-lg border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-stone-500 mb-1">Confirmar senha</label>
+            <input
+              type="password"
+              value={confirmarSenha}
+              onChange={(e) => setConfirmarSenha(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleDefinirSenha()}
+              placeholder="Repete a senha"
+              className="w-full h-9 px-3 rounded-lg border border-stone-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
+            />
+          </div>
+
+          {erroSenha && <p className="text-xs text-red-600">{erroSenha}</p>}
+          {sucessoSenha && <p className="text-xs text-emerald-700">Senha salva.</p>}
+
+          <button
+            type="button"
+            onClick={handleDefinirSenha}
+            disabled={salvandoSenha}
+            className="w-full h-9 rounded-lg border border-stone-300 text-sm text-stone-700 hover:bg-stone-50 disabled:opacity-60 flex items-center justify-center gap-2"
+          >
+            {salvandoSenha && <Loader2 size={14} className="animate-spin" />}
+            {salvandoSenha ? "Salvando..." : temSenha ? "Trocar senha" : "Definir senha"}
+          </button>
+        </div>
+
+        <button
+          type="button"
+          onClick={onFechar}
+          className="w-full h-9 rounded-lg border border-stone-300 text-sm text-stone-700 hover:bg-stone-50 mt-5"
+        >
+          Fechar
+        </button>
       </div>
     </div>
   );

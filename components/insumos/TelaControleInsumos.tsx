@@ -25,7 +25,7 @@ import {
   removerInsumo,
   reordenarInsumos,
 } from "@/app/(app)/insumos/actions";
-import { atualizarCores, removerCategoria } from "@/app/(app)/actions";
+import { atualizarCores, definirSenha, removerCategoria } from "@/app/(app)/actions";
 import { criarListaCompras, removerListaCompras } from "@/app/(app)/listas-compras/actions";
 import type { Categoria, InsumoComCategoria, ListaCompras } from "@/lib/types";
 
@@ -42,6 +42,8 @@ interface Props {
   categoriasIniciais: Categoria[];
   insumosIniciais: InsumoComCategoria[];
   listasComprasIniciais: ListaCompras[];
+  email: string | null;
+  temSenha: boolean;
 }
 
 function LogoOuIniciais({ estabelecimento }: { estabelecimento: Estabelecimento }) {
@@ -74,6 +76,8 @@ export default function TelaControleInsumos({
   categoriasIniciais,
   insumosIniciais,
   listasComprasIniciais,
+  email,
+  temSenha,
 }: Props) {
   const router = useRouter();
 
@@ -103,6 +107,13 @@ export default function TelaControleInsumos({
   if (listasComprasIniciais !== listasComprasPropsAnteriores) {
     setListasComprasPropsAnteriores(listasComprasIniciais);
     setListasCompras(listasComprasIniciais);
+  }
+
+  const [temSenhaPropAnterior, setTemSenhaPropAnterior] = useState(temSenha);
+  const [temSenhaAtual, setTemSenhaAtual] = useState(temSenha);
+  if (temSenha !== temSenhaPropAnterior) {
+    setTemSenhaPropAnterior(temSenha);
+    setTemSenhaAtual(temSenha);
   }
 
   const [busca, setBusca] = useState("");
@@ -179,6 +190,11 @@ export default function TelaControleInsumos({
     await atualizarCores(formData);
     setPerfilAberto(false);
     router.refresh();
+  }
+
+  async function handleDefinirSenha(formData: FormData) {
+    await definirSenha(formData);
+    setTemSenhaAtual(true);
   }
 
   async function handleRemoverCategoria(categoriaId: string) {
@@ -381,10 +397,13 @@ export default function TelaControleInsumos({
 
       {perfilAberto && (
         <ModalPerfil
+          email={email}
+          temSenha={temSenhaAtual}
           corPrimariaAtual={estabelecimento.corPrimaria}
           corSecundariaAtual={estabelecimento.corSecundaria}
           onFechar={() => setPerfilAberto(false)}
-          onSalvar={handleSalvarCores}
+          onSalvarCores={handleSalvarCores}
+          onDefinirSenha={handleDefinirSenha}
         />
       )}
 

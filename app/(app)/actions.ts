@@ -1,8 +1,9 @@
 "use server";
 
+import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { getEstabelecimentoIdOuFalha } from "@/lib/auth/estabelecimento";
+import { getEstabelecimentoIdOuFalha, getUserIdOuRedireciona } from "@/lib/auth/estabelecimento";
 
 const HEX_REGEX = /^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/;
 
@@ -68,6 +69,25 @@ export async function removerCategoria(categoriaId: string) {
 
     await tx.categoria.delete({ where: { id: categoria.id } });
   });
+
+  revalidatePath("/insumos");
+}
+
+/**
+ * Define/troca a senha da conta JÁ LOGADA — é assim (e só assim) que uma
+ * conta criada via Google passa a aceitar login por e-mail/senha também.
+ * Não existe um "vincular pelo e-mail" sem estar logado: isso seria dar
+ * pra qualquer um a chance de sequestrar a conta (e a loja) de outra
+ * pessoa só sabendo o e-mail dela. Aqui a sessão já prova quem é o dono.
+ */
+export async function definirSenha(formData: FormData) {
+  const userId = await getUserIdOuRedireciona();
+
+  const senha = String(formData.get("senha") ?? "");
+  if (senha.length < 8) throw new Error("A senha precisa ter pelo menos 8 caracteres.");
+
+  const hash = await bcrypt.hash(senha, 10);
+  await prisma.user.update({ where: { id: userId }, data: { password: hash } });
 
   revalidatePath("/insumos");
 }

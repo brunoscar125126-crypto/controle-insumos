@@ -7,7 +7,7 @@ import authConfig from "./auth.config";
 // runtime Node completo.
 const { auth } = NextAuth(authConfig);
 
-const ROTAS_PUBLICAS = ["/login", "/api/auth"];
+const ROTAS_PUBLICAS = ["/login", "/cadastro", "/api/auth"];
 
 // Imagens (logo/foto) são servidas sem checar sessão — mesmo comportamento
 // de quando viviam num bucket R2 público (ver comentário nas próprias
@@ -27,7 +27,7 @@ export default auth((req) => {
     return NextResponse.redirect(url);
   }
 
-  if (logado && req.nextUrl.pathname === "/login") {
+  if (logado && (req.nextUrl.pathname === "/login" || req.nextUrl.pathname === "/cadastro")) {
     const url = req.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);

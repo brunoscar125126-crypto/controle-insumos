@@ -20,6 +20,9 @@ model User {
   email         String?   @unique
   emailVerified DateTime? @map("email_verified")
   image         String?
+  // Hash bcrypt — só existe pra quem definiu login por e-mail/senha (ver
+  // Credentials provider em auth.ts). Login via Google nunca preenche isso.
+  password      String?
 
   accounts        Account[]
   sessions        Session[]
